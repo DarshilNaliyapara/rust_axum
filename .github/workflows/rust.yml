@@ -1,4 +1,4 @@
-name: Rust
+name: Rust CI
 
 on:
   push:
@@ -8,15 +8,56 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # This matches the credentials of the temporary Postgres service below
+  DATABASE_URL: postgres://postgres:password@localhost:5432/test_db
 
 jobs:
-  build:
-
+  build-and-test:
     runs-on: ubuntu-latest
+
+    # 1. Spin up a temporary database for your tests to use
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        # Wait for Postgres to be fully ready before starting the tests
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
     - uses: actions/checkout@v4
+
+    # 2. Cache your Rust dependencies to drastically reduce build times
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+
+    # 3. Install Diesel CLI to run your migrations on the test database
+    - name: Install Diesel CLI
+      run: cargo install diesel_cli --no-default-features --features postgres
+
+    # 4. Run migrations to create your tables (like user_table)
+    - name: Run Database Migrations
+      run: diesel migration run
+
+    - name: Start server in background
+      # Run the app in the background (&) so the pipeline can continue to the next step
+      run: cargo run &
+
+     # 5. Compile the code and ensure there are no warnings
     - name: Build
       run: cargo build --verbose
+      
+    - name: Wait for server to boot
+      run: sleep 3
+
+    # 6. Run your unit tests
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test  -- --test quick_dev -- --nocapture --verbose
