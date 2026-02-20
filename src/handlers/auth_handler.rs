@@ -24,7 +24,7 @@ pub async fn register(
     checks.insert("username".to_string(), body.username.to_lowercase());
     checks.insert("email".to_string(), body.email.clone());
 
-    check_conflicts(&mut *conn, "users", checks).await?;
+    check_conflicts(&mut *conn, "users", checks, None).await?;
 
     let hashed_password = async_task(move || bcrypt::hash(body.password, bcrypt::DEFAULT_COST))
         .await?
