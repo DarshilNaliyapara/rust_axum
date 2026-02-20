@@ -3,7 +3,7 @@ use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 use tracing::Level;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use rust_axum::AppState;
+use rust_axum::{AppState, fallback_handler};
 use rust_axum::{config, routes};
 
 #[tokio::main]
@@ -23,11 +23,14 @@ async fn main() {
     tracing::info!("Database is connected!");
 
     let state = AppState { db_pool: pool };
-    let app = routes::create_router().with_state(state).layer(
-        TraceLayer::new_for_http()
-            .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
-            .on_response(DefaultOnResponse::new().level(Level::INFO)),
-    );
+    let app = routes::create_router()
+        .with_state(state)
+        .fallback(fallback_handler)
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
+                .on_response(DefaultOnResponse::new().level(Level::INFO)),
+        );
 
     let addr = std::env::var("URL").unwrap_or_else(|_| "127.0.0.1:8080".to_string());
     tracing::info!("Listening on http://{}", addr);

@@ -32,14 +32,13 @@ impl User {
             email,
             password,
             created_at: now,
-            updated_at: None, // Standardized: Always None on creation
+            updated_at: None,
         }
     }
 }
 
 #[derive(Deserialize, Validate)]
 pub struct CreateUserRequest {
-    // Intent: Ensure full name is not empty
     #[validate(length(min = 3, message = "Full name is required"))]
     pub fullname: String,
 

@@ -1,7 +1,7 @@
 use axum::{
     Json,
     extract::{FromRef, FromRequest, FromRequestParts, Request},
-    http::{StatusCode, request::Parts},
+    http::{StatusCode, Uri, request::Parts},
     response::{IntoResponse, Response},
 };
 use diesel_async::AsyncPgConnection;
@@ -11,6 +11,7 @@ use tracing::{error, warn};
 use validator::Validate;
 
 pub use config::Pool;
+pub use error::AppError;
 
 // Declare modules
 pub mod config;
@@ -78,7 +79,7 @@ where
     async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
         let Json(value) = Json::<T>::from_request(req, state)
             .await
-            .map_err(|e| e.into_response())?; // Return standard 400 if JSON is malformed
+            .map_err(|e| e.into_response())?; 
 
         value.validate().map_err(|errors| {
             warn!(?errors, "Client payload rejected due to validation failure");
@@ -95,4 +96,16 @@ where
 
         Ok(ValidJson(value))
     }
+}
+
+// This handler catches any request that doesn't match your defined routes
+pub async fn fallback_handler(uri: Uri) -> impl IntoResponse {
+    warn!(%uri, "Client requested a non-existent route");
+    (
+        StatusCode::NOT_FOUND,
+        Json(serde_json::json!({
+            "error": "Path Not Found",
+            "message": format!("No route found for path: {}", uri.path())
+        }))
+    )
 }
