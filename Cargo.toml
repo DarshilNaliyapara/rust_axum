@@ -1,0 +1,37 @@
+[package]
+name = "rust_axum"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# -- Async
+tokio = { version = "1.49.0", features = ["full"] }
+async-trait = "0.1.89"
+
+# -- Web
+axum = "0.8.8"
+tower-http = { version = "0.6.8", features = ["fs","trace"] }
+tower-cookies = "0.11.0"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt"] }
+
+# -- Serde
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+serde_with = "3.16.1"
+
+# -- Other
+chrono = { version = "0.4.43", features = ["serde"] }
+dotenvy = "0.15.7"
+uuid = { version = "1.21.0", features = ["v7", "serde"] }
+bcrypt = "0.18.0"
+validator = { version = "0.20.0", features = ["derive"] }
+
+# Database
+diesel = { version = "2.3.6", features = ["postgres", "uuid", "chrono"] }
+diesel-async = { version = "0.7.4", features = ["postgres", "bb8"] }
+bb8 = "0.9.1"
+
+[dev-dependencies]
+anyhow = "1.0.102"
+httpc-test = "0.1.10"
