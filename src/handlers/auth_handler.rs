@@ -19,7 +19,6 @@ pub async fn register(
     DbConn(mut conn): DbConn,
     ValidJson(body): ValidJson<CreateUserRequest>,
 ) -> Result<(StatusCode, Json<User>), AppError> {
-    
     let mut checks = HashMap::new();
     checks.insert("username".to_string(), body.username.to_lowercase());
     checks.insert("email".to_string(), body.email.clone());
@@ -36,7 +35,7 @@ pub async fn register(
     let new_user = User::new(
         body.fullname,
         body.username.to_lowercase(),
-        body.email,
+        body.email.to_lowercase(),
         hashed_password,
     );
 

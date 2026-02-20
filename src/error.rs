@@ -57,10 +57,12 @@ impl IntoResponse for AppError {
                     "Internal database error".to_string(),
                 )
             }
+
             AppError::UserNotFound => {
                 debug!("Attempted to access a non-existent user");
                 (StatusCode::NOT_FOUND, "User not found".to_string())
             }
+
             AppError::InternalServerError => {
                 error!("An unexpected internal server error occurred");
                 (

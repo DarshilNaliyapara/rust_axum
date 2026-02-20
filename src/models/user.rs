@@ -1,22 +1,22 @@
-
-use chrono::NaiveDateTime;
-use uuid::Uuid;
-use serde::{Serialize, Deserialize};
-use diesel::prelude::*;
 use crate::schema::users;
+use chrono::NaiveDateTime;
+use diesel::prelude::*;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 use validator::Validate;
-
 
 #[derive(Debug, Serialize, Queryable, Selectable, Insertable)]
 #[diesel(table_name = users)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct User {
-    pub id: Uuid, 
+    pub id: Uuid,
     pub full_name: String,
     pub username: String,
     pub email: String,
     #[serde(skip_serializing)]
     pub password: String,
+    pub is_admin: bool,
+    pub is_active: bool,
     pub created_at: NaiveDateTime,
     pub updated_at: Option<NaiveDateTime>,
 }
@@ -31,6 +31,8 @@ impl User {
             username,
             email,
             password,
+            is_admin: false,
+            is_active: true,
             created_at: now,
             updated_at: None,
         }

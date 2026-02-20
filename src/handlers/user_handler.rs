@@ -30,6 +30,10 @@ pub async fn list_users(DbConn(mut conn): DbConn) -> Result<Json<Vec<User>>, App
         .await
         .expect("Error loading users");
 
+    if users.is_empty() {
+        return Err(AppError::UserNotFound);
+    }
+
     Ok(Json(users))
 }
 

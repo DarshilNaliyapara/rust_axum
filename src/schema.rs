@@ -11,6 +11,8 @@ diesel::table! {
         email -> Varchar,
         #[max_length = 255]
         password -> Varchar,
+        is_admin -> Bool,
+        is_active -> Bool,
         created_at -> Timestamp,
         updated_at -> Nullable<Timestamp>,
     }
