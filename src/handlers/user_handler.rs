@@ -6,7 +6,8 @@ use axum::response::{Html, IntoResponse};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use serde_json::{Value, json};
-use tracing::info;
+use tracing::{error, info};
+use uuid::Uuid;
 
 use crate::models::user::{CreateUserRequest, User};
 use crate::schema::users;
@@ -18,10 +19,22 @@ pub async fn get_me() -> impl IntoResponse {
     Html(format!("Hello this is ME"))
 }
 
-pub async fn get_user(Path(id): Path<String>) -> impl IntoResponse {
-    println!("user with id: {id}");
+pub async fn get_user(
+    DbConn(mut conn): DbConn,
+    Path(id): Path<String>,
+) -> Result<Json<User>, AppError> {
+    let uuid_id = Uuid::parse_str(&id).map_err(|_| AppError::InvalidId)?;
 
-    Html(format!("User with id: {id}"))
+    let user = users::table
+        .find(uuid_id)
+        .first::<User>(&mut *conn)
+        .await
+        .map_err(|e| {
+            error!("Database error fetching user {}: {:?}", id, e);
+            AppError::UserNotFound
+        })?;
+
+    Ok(Json(user))
 }
 
 pub async fn list_users(DbConn(mut conn): DbConn) -> Result<Json<Vec<User>>, AppError> {
