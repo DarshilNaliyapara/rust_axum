@@ -3,10 +3,14 @@ use std::collections::HashMap;
 use axum::{Json, http::StatusCode};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
+use jsonwebtoken::{DecodingKey, Validation, decode};
+use serde::{Deserialize, Serialize};
+use std::env;
 use tower_cookies::{Cookie, Cookies};
 
 use crate::AppError;
 use crate::models::user::{AuthJsonResponse, CreateUserRequest, LoginUserRequest, User};
+use crate::schema::users::dsl::*;
 use crate::services::async_task::async_task;
 use crate::services::check_conflict::check_conflicts;
 use crate::services::jwt_cookie::save_to_cookie;
@@ -24,8 +28,9 @@ pub async fn login(
         .await
         .map_err(|_| AppError::InvalidCredentials)?;
 
-    let is_password_valid =
-        bcrypt::verify(&body.password, &user.password).map_err(|_| AppError::InvalidCredentials)?;
+    let is_password_valid = async_task(move || {
+        bcrypt::verify(&body.password, &user.password).map_err(|_| AppError::InvalidCredentials)
+    }).await??;
 
     if !is_password_valid {
         return Err(AppError::InvalidCredentials);
@@ -96,12 +101,23 @@ pub async fn register(
     Ok((StatusCode::CREATED, Json(response)))
 }
 
-pub async fn logout(cookies: Cookies) -> Result<(StatusCode, Json<AuthJsonResponse>), AppError> {
-
-    cookies.get("accessToken").ok_or_else(|| {
+pub async fn logout(
+    cookies: Cookies,
+    DbConn(mut conn): DbConn,
+) -> Result<(StatusCode, Json<AuthJsonResponse>), AppError> {
+    let cookie = cookies.get("accessToken").ok_or_else(|| {
         tracing::warn!("Failed logout attempt: No access token found");
-        AppError::Unauthorized 
+        AppError::Unauthorized
     })?;
+
+    let token = cookie.value();
+    let user_id = extract_id_from_token(token)?;
+    let id_uuid = uuid::Uuid::parse_str(&user_id).map_err(|_| AppError::InvalidId)?;
+
+    diesel::update(users.find(id_uuid))
+        .set(is_active.eq(false))
+        .get_result::<User>(&mut *conn)
+        .await?;
 
     let mut removal_cookie = Cookie::new("accessToken", "");
     removal_cookie.set_path("/");
@@ -116,4 +132,28 @@ pub async fn logout(cookies: Cookies) -> Result<(StatusCode, Json<AuthJsonRespon
     };
 
     Ok((StatusCode::OK, Json(response)))
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct AuthPayload {
+    sub: String,
+    exp: usize,
+}
+
+fn extract_id_from_token(token: &str) -> Result<String, AppError> {
+    let secret = env::var("JWT_SECRET").map_err(|_| {
+        tracing::error!("CRITICAL: JWT_SECRET environment variable is undefined");
+        AppError::InternalServerError
+    })?;
+
+    let decoding_key = DecodingKey::from_secret(secret.as_bytes());
+    let validation = Validation::default();
+
+    match decode::<AuthPayload>(token, &decoding_key, &validation) {
+        Ok(token_data) => Ok(token_data.claims.sub),
+        Err(err) => {
+            tracing::error!("Token validation failed during logout: {:?}", err.kind());
+            Err(AppError::Unauthorized)
+        }
+    }
 }
