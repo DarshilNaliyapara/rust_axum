@@ -98,13 +98,10 @@ pub async fn register(
 
 pub async fn logout(cookies: Cookies) -> Result<(StatusCode, Json<AuthJsonResponse>), AppError> {
 
-    let cookie = cookies.get("accessToken").ok_or_else(|| {
+    cookies.get("accessToken").ok_or_else(|| {
         tracing::warn!("Failed logout attempt: No access token found");
         AppError::Unauthorized 
     })?;
-
-    let token = cookie.value();
-
 
     let mut removal_cookie = Cookie::new("accessToken", "");
     removal_cookie.set_path("/");
