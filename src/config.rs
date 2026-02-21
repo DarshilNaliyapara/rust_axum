@@ -5,8 +5,7 @@ use std::env;
 
 pub type Pool = bb8::Pool<AsyncDieselConnectionManager<AsyncPgConnection>>;
 
-// Note: This must be 'async' because bb8::Pool::builder().build() is async
-pub async fn establish_connection_pool() -> Pool {
+pub async fn  connect_to_database() -> Pool {
     dotenv().ok();
 
     let database_url = env::var("DATABASE_URL")

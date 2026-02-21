@@ -82,7 +82,7 @@ where
             .map_err(|e| e.into_response())?; 
 
         value.validate().map_err(|errors| {
-            warn!(?errors, "Client payload rejected due to validation failure");
+            warn!(?errors, "payload rejected due to validation failure");
 
             (
                 StatusCode::BAD_REQUEST,
@@ -100,7 +100,7 @@ where
 
 // This handler catches any request that doesn't match your defined routes
 pub async fn fallback_handler(uri: Uri) -> impl IntoResponse {
-    warn!(%uri, "Client requested a non-existent route");
+    warn!(%uri, "requested a non-existent route");
     (
         StatusCode::NOT_FOUND,
         Json(serde_json::json!({

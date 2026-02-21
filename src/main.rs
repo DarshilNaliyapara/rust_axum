@@ -19,7 +19,7 @@ async fn main() {
 
     tracing::info!("Initializing application...");
 
-    let pool = config::establish_connection_pool().await;
+    let pool = config::connect_to_database().await;
     tracing::info!("Database is connected!");
 
     let state = AppState { db_pool: pool };

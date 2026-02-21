@@ -7,15 +7,12 @@ use tracing::{debug, error};
 
 #[derive(thiserror::Error, Debug)]
 pub enum AppError {
-    // The #[from] macro automatically converts Diesel errors into AppErrors!
     #[error("Database execution error")]
     Database(#[from] diesel::result::Error),
 
-    // You can add custom business-logic errors here
     #[error("User not found")]
     UserNotFound,
 
-    // A catch-all for other unexpected issues
     #[error("Internal server error")]
     InternalServerError,
 
@@ -24,6 +21,12 @@ pub enum AppError {
 
     #[error("Conflict on fields: {0:?}")]
     Conflict(Vec<String>),
+
+    #[error("Invalid credentials provided")]
+    InvalidCredentials,
+
+    #[error("Unauthorized")]
+    Unauthorized,
 }
 
 // Tell Axum how to convert these errors into HTTP responses
@@ -74,6 +77,16 @@ impl IntoResponse for AppError {
                 debug!("Client provided an invalid UUID string");
                 (StatusCode::BAD_REQUEST, "Invalid ID format".to_string())
             }
+
+            AppError::InvalidCredentials => {
+                debug!("Invalid credentials provided");
+                (StatusCode::UNAUTHORIZED, "Invalid credentials".to_string())
+            }
+
+            AppError::Unauthorized => {
+                debug!("Unauthorized access attempt");
+                (StatusCode::UNAUTHORIZED, "Unauthorized".to_string())
+            }
         };
 
         let body = Json(serde_json::json!({
@@ -81,5 +94,12 @@ impl IntoResponse for AppError {
         }));
 
         (status, body).into_response()
+    }
+}
+
+impl From<anyhow::Error> for AppError {
+    fn from(inner: anyhow::Error) -> Self {
+        tracing::error!("Internal Server Error (Anyhow): {:?}", inner);
+        AppError::InternalServerError 
     }
 }

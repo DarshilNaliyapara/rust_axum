@@ -10,10 +10,11 @@ async-trait = "0.1.89"
 
 # -- Web
 axum = "0.8.8"
-tower-http = { version = "0.6.8", features = ["fs","trace"] }
+tower-http = { version = "0.6.8", features = ["fs", "trace"] }
 tower-cookies = "0.11.0"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt"] }
+jsonwebtoken = {version = "10.3.0", features = ["rust_crypto"]}
 
 # -- Serde
 serde = { version = "1.0.228", features = ["derive"] }
@@ -26,6 +27,7 @@ dotenvy = "0.15.7"
 uuid = { version = "1.21.0", features = ["v7", "serde"] }
 bcrypt = "0.18.0"
 validator = { version = "0.20.0", features = ["derive"] }
+anyhow = "1.0.102"
 
 # Database
 diesel = { version = "2.3.6", features = ["postgres", "uuid", "chrono"] }
@@ -34,5 +36,4 @@ bb8 = "0.9.1"
 thiserror = "2.0.18"
 
 [dev-dependencies]
-anyhow = "1.0.102"
 httpc-test = "0.1.10"

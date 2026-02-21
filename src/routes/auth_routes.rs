@@ -1,10 +1,13 @@
-use axum::{Router, routing::{get, post}};
-use crate::AppState;
-use crate::handlers::auth_handler;
+use axum::{Router, routing::{post}};
+use tower_cookies::CookieManagerLayer;
+
+use crate::{AppState, handlers::auth_handler};
+
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/login", get(auth_handler::login))
+        .route("/login", post(auth_handler::login))
         .route("/register", post(auth_handler::register))
-        .route("/logout", get(auth_handler::logout))
+        .route("/logout", post(auth_handler::logout))
+        .layer(CookieManagerLayer::new())
 }

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use axum::Json;
 use axum::extract::Path;
+use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
@@ -54,7 +55,7 @@ pub async fn update_user(
     DbConn(mut conn): DbConn,
     Path(id): Path<String>,
     ValidJson(body): ValidJson<CreateUserRequest>,
-) -> Result<Json<Value>, AppError> {
+) -> Result<(StatusCode, Json<Value>), AppError> {
     let uuid = uuid::Uuid::parse_str(&id).map_err(|_| AppError::InvalidId)?;
 
     let mut checks = HashMap::new();
@@ -76,13 +77,16 @@ pub async fn update_user(
         return Err(AppError::UserNotFound);
     }
     info!(%uuid, "User Updated Successfully");
-    Ok(Json(json!({"message": "User updated successfully"})))
+    Ok((
+        StatusCode::OK,
+        Json(json!({"message": "User updated successfully"})),
+    ))
 }
 
 pub async fn delete_user(
     DbConn(mut conn): DbConn,
     Path(id): Path<String>,
-) -> Result<Json<Value>, AppError> {
+) -> Result<(StatusCode, Json<Value>), AppError> {
     let uuid = uuid::Uuid::parse_str(&id).map_err(|_| AppError::InvalidId)?;
     let rows_deleted = diesel::delete(users::table.filter(users::id.eq(uuid)))
         .execute(&mut *conn)
@@ -92,5 +96,8 @@ pub async fn delete_user(
     }
 
     info!(%uuid, "User deleted successfully");
-    Ok(Json(json!({"message": "User deleted successfully"})))
+    Ok((
+        StatusCode::OK,
+        Json(json!({"message": "User deleted successfully"})),
+    ))
 }

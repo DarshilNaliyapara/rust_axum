@@ -1,5 +1,3 @@
--- Your SQL goes here
--- Your SQL goes here
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY,
     full_name VARCHAR(255) NOT NULL,
