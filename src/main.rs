@@ -1,4 +1,7 @@
+use std::env;
+
 use tokio::net::TcpListener;
+use tower_cookies::CookieManagerLayer;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 use tracing::Level;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -22,10 +25,11 @@ async fn main() {
     let pool = config::connect_to_database().await;
     tracing::info!("Database is connected!");
 
-    let state = AppState { db_pool: pool };
-    let app = routes::create_router()
+    let state = AppState { db_pool: pool, jwt_secret: env::var("ACCESS_SECRET").unwrap()};
+    let app = routes::create_router(state.clone())
         .with_state(state)
         .fallback(fallback_handler)
+        .layer(CookieManagerLayer::new())         
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(DefaultMakeSpan::new().level(Level::INFO))

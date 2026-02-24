@@ -27,6 +27,9 @@ pub enum AppError {
 
     #[error("Unauthorized")]
     Unauthorized,
+
+    #[error{"Restricted"}]
+    Restricted,
 }
 
 // Tell Axum how to convert these errors into HTTP responses
@@ -86,6 +89,11 @@ impl IntoResponse for AppError {
             AppError::Unauthorized => {
                 debug!("Unauthorized access attempt");
                 (StatusCode::UNAUTHORIZED, "Unauthorized".to_string())
+            }
+
+            AppError::Restricted => {
+                debug!("Restricted access attempt");
+                (StatusCode::FORBIDDEN, "Restricted".to_string())
             }
         };
 

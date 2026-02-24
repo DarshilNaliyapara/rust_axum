@@ -1,3 +1,5 @@
+use std::env;
+
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
 use chrono::{Utc, Duration};
@@ -5,17 +7,17 @@ use uuid::Uuid;
 use crate::error::AppError; // Adjust to your actual AppError path
 
 // The payload that goes inside the token
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    pub sub: String, // Subject (The User ID)
-    pub exp: usize,  // Expiration time
-    pub iat: usize,  // Issued at time
+    pub sub: String,
+    pub exp: usize,
+    pub iat: usize, 
 }
 
 pub fn create_jwt(user_id: Uuid) -> Result<String, AppError> {
     let now = Utc::now();
     
-    let expiration = now.checked_add_signed(Duration::hours(24))
+    let expiration = now.checked_add_signed(Duration::minutes(30))
         .expect("Valid timestamp")
         .timestamp() as usize;
 
@@ -25,8 +27,8 @@ pub fn create_jwt(user_id: Uuid) -> Result<String, AppError> {
         iat: now.timestamp() as usize,
     };
 
-    let secret = std::env::var("JWT_SECRET").map_err(|_| {
-        tracing::error!("FATAL: JWT_SECRET environment variable is not set");
+    let secret = env::var("ACCESS_SECRET").map_err(|_| {
+        tracing::error!("FATAL: ACCESS_SECRET environment variable is not set");
         AppError::InternalServerError
     })?;
 

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::schema::users;
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
@@ -5,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use validator::Validate;
 
-#[derive(Debug, Serialize, Queryable, Selectable, Insertable)]
+#[derive(Debug, Clone, Serialize, Queryable, Selectable, Insertable)]
 #[diesel(table_name = users)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct User {
@@ -22,12 +24,12 @@ pub struct User {
 }
 
 impl User {
-    pub fn new(fullname: String, username: String, email: String, password: String) -> Self {
+    pub fn new(full_name: String, username: String, email: String, password: String) -> Self {
         let now = chrono::Utc::now().naive_utc();
 
         Self {
             id: uuid::Uuid::now_v7(),
-            full_name: fullname,
+            full_name: full_name,
             username,
             email,
             password,
@@ -42,7 +44,7 @@ impl User {
 #[derive(Deserialize, Validate)]
 pub struct CreateUserRequest {
     #[validate(length(min = 3, message = "Full name is required"))]
-    pub fullname: String,
+    pub full_name: String,
 
     #[validate(length(min = 3, message = "Username must be at least 3 characters"))]
     pub username: String,
@@ -50,7 +52,7 @@ pub struct CreateUserRequest {
     #[validate(email(message = "Must be a valid email address"))]
     pub email: String,
 
-    #[validate(length(min = 8, message = "Password must be at least 8 characters"))]
+    #[validate(length(min = 6, message = "Password must be at least 6 characters"))]
     pub password: String,
 }
 
@@ -66,7 +68,7 @@ pub struct LoginUserRequest {
 pub struct AuthJsonResponse {
     pub status: String,
     pub message: String,
-    pub token: Option<String>,
+    pub token: Option<Vec<String>>,
     pub data: Option<UserResponse>,
 }
 
@@ -91,4 +93,20 @@ impl From<User> for UserResponse {
             is_active: user.is_active,
         }
     }
+}
+
+#[derive(Debug, Deserialize, Validate)]
+pub struct ChangePasswordRequest {
+    #[validate(length(min = 6, message = "Password must be at least 6 characters"))]
+    pub old_password: String,
+    #[validate(length(min = 6, message = "Password must be at least 6 characters"))]
+    pub new_password: String,
+}
+
+#[derive(Deserialize, AsChangeset, Validate)]
+#[diesel(table_name = users)]
+pub struct UpdateUserPayload {
+    pub full_name: Option<String>,
+    pub username: Option<String>,
+    pub email: Option<String>,
 }

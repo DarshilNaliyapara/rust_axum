@@ -13,7 +13,6 @@ use validator::Validate;
 pub use config::Pool;
 pub use error::AppError;
 
-// Declare modules
 pub mod config;
 pub mod error;
 pub mod handlers;
@@ -26,6 +25,7 @@ pub mod services;
 #[derive(Clone)]
 pub struct AppState {
     pub db_pool: Pool,
+    pub jwt_secret: String,
 }
 
 impl FromRef<AppState> for Pool {
@@ -34,7 +34,6 @@ impl FromRef<AppState> for Pool {
     }
 }
 
-// This holds the actual pooled connection from bb8
 pub struct DbConn(
     pub bb8::PooledConnection<'static, AsyncDieselConnectionManager<AsyncPgConnection>>,
 );

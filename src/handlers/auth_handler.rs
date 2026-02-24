@@ -1,15 +1,14 @@
-use std::collections::HashMap;
-
+use axum::Extension;
 use axum::{Json, http::StatusCode};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use jsonwebtoken::{DecodingKey, Validation, decode};
-use serde::{Deserialize, Serialize};
-use std::env;
+use std::collections::HashMap;
 use tower_cookies::{Cookie, Cookies};
 
 use crate::AppError;
-use crate::models::user::{AuthJsonResponse, CreateUserRequest, LoginUserRequest, User};
+use crate::models::user::{
+    AuthJsonResponse, ChangePasswordRequest, CreateUserRequest, LoginUserRequest, User,
+};
 use crate::schema::users::dsl::*;
 use crate::services::async_task::async_task;
 use crate::services::check_conflict::check_conflicts;
@@ -30,7 +29,8 @@ pub async fn login(
 
     let is_password_valid = async_task(move || {
         bcrypt::verify(&body.password, &user.password).map_err(|_| AppError::InvalidCredentials)
-    }).await??;
+    })
+    .await??;
 
     if !is_password_valid {
         return Err(AppError::InvalidCredentials);
@@ -45,10 +45,12 @@ pub async fn login(
         .get_result::<User>(&mut *conn)
         .await?;
 
+    let tokens = vec![token];
+
     let response = AuthJsonResponse {
         status: "success".to_string(),
         message: "Login Successfull!!".to_string(),
-        token: Some(token.to_string()),
+        token: Some(tokens),
         data: Some(active_user.into()),
     };
 
@@ -65,16 +67,17 @@ pub async fn register(
     checks.insert("email".to_string(), body.email.clone());
 
     check_conflicts(&mut *conn, "users", checks, None).await?;
-
-    let hashed_password = async_task(move || bcrypt::hash(body.password, bcrypt::DEFAULT_COST))
+    let start = std::time::Instant::now();
+    let hashed_password = async_task(move || bcrypt::hash(body.password, 10))
         .await?
         .map_err(|e| {
             tracing::error!(error = %e, "Failed to hash password");
             AppError::InternalServerError
         })?;
+    tracing::info!("Hashing took: {:?}", start.elapsed());
 
     let new_user = User::new(
-        body.fullname,
+        body.full_name,
         body.username.to_lowercase(),
         body.email.to_lowercase(),
         hashed_password,
@@ -91,10 +94,12 @@ pub async fn register(
 
     cookies.add(cookie);
 
+    let tokens = vec![token];
+
     let response = AuthJsonResponse {
         status: "success".to_string(),
         message: "Resgistration Successfull!!".to_string(),
-        token: Some(token.to_string()),
+        token: Some(tokens),
         data: Some(saved_user.into()),
     };
 
@@ -104,14 +109,9 @@ pub async fn register(
 pub async fn logout(
     cookies: Cookies,
     DbConn(mut conn): DbConn,
+    Extension(auth_user): Extension<User>,
 ) -> Result<(StatusCode, Json<AuthJsonResponse>), AppError> {
-    let cookie = cookies.get("accessToken").ok_or_else(|| {
-        tracing::warn!("Failed logout attempt: No access token found");
-        AppError::Unauthorized
-    })?;
-
-    let token = cookie.value();
-    let user_id = extract_id_from_token(token)?;
+    let user_id = auth_user.id.to_string();
     let id_uuid = uuid::Uuid::parse_str(&user_id).map_err(|_| AppError::InvalidId)?;
 
     diesel::update(users.find(id_uuid))
@@ -134,26 +134,48 @@ pub async fn logout(
     Ok((StatusCode::OK, Json(response)))
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct AuthPayload {
-    sub: String,
-    exp: usize,
-}
+pub async fn change_password(
+    DbConn(mut conn): DbConn,
+    Extension(auth_user): Extension<User>,
+    ValidJson(body): ValidJson<ChangePasswordRequest>,
+) -> Result<(StatusCode, Json<AuthJsonResponse>), AppError> {
+    // Fetch user
+    let user = users::table
+        .filter(users::username.eq(auth_user.username))
+        .first::<User>(&mut *conn)
+        .await
+        .map_err(|_| AppError::Unauthorized)?;
 
-fn extract_id_from_token(token: &str) -> Result<String, AppError> {
-    let secret = env::var("JWT_SECRET").map_err(|_| {
-        tracing::error!("CRITICAL: JWT_SECRET environment variable is undefined");
-        AppError::InternalServerError
-    })?;
+    // Verify old password
+    let old_password = body.old_password.clone();
+    let stored_hash = user.password.clone();
+    let is_password_valid = async_task(move || {
+        bcrypt::verify(&old_password, &stored_hash).map_err(|_| AppError::InvalidCredentials)
+    })
+    .await??;
 
-    let decoding_key = DecodingKey::from_secret(secret.as_bytes());
-    let validation = Validation::default();
-
-    match decode::<AuthPayload>(token, &decoding_key, &validation) {
-        Ok(token_data) => Ok(token_data.claims.sub),
-        Err(err) => {
-            tracing::error!("Token validation failed during logout: {:?}", err.kind());
-            Err(AppError::Unauthorized)
-        }
+    if !is_password_valid {
+        return Err(AppError::InvalidCredentials);
     }
+
+    let new_password = body.new_password.clone();
+    let new_hash = async_task(move || {
+        bcrypt::hash(&new_password, 10).map_err(|_| AppError::InternalServerError)
+    })
+    .await??;
+
+    let id_uuid = uuid::Uuid::parse_str(&user.id.to_string()).map_err(|_| AppError::InvalidId)?;
+
+    diesel::update(users::table.find(id_uuid))
+        .set(users::password.eq(new_hash))
+        .get_result::<User>(&mut *conn)
+        .await?;
+
+    let response = AuthJsonResponse {
+        status: "success".to_string(),
+        message: "Password changed successfully!".to_string(),
+        token: None,
+        data: None,
+    };
+    Ok((StatusCode::OK, Json(response)))
 }
