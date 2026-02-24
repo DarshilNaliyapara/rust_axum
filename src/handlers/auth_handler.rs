@@ -67,14 +67,12 @@ pub async fn register(
     checks.insert("email".to_string(), body.email.clone());
 
     check_conflicts(&mut *conn, "users", checks, None).await?;
-    let start = std::time::Instant::now();
     let hashed_password = async_task(move || bcrypt::hash(body.password, 10))
         .await?
         .map_err(|e| {
             tracing::error!(error = %e, "Failed to hash password");
             AppError::InternalServerError
         })?;
-    tracing::info!("Hashing took: {:?}", start.elapsed());
 
     let new_user = User::new(
         body.full_name,
@@ -147,8 +145,8 @@ pub async fn change_password(
         .map_err(|_| AppError::Unauthorized)?;
 
     // Verify old password
-    let old_password = body.old_password.clone();
-    let stored_hash = user.password.clone();
+    let old_password = body.old_password;
+    let stored_hash = user.password;
     let is_password_valid = async_task(move || {
         bcrypt::verify(&old_password, &stored_hash).map_err(|_| AppError::InvalidCredentials)
     })
@@ -158,7 +156,7 @@ pub async fn change_password(
         return Err(AppError::InvalidCredentials);
     }
 
-    let new_password = body.new_password.clone();
+    let new_password = body.new_password;
     let new_hash = async_task(move || {
         bcrypt::hash(&new_password, 10).map_err(|_| AppError::InternalServerError)
     })

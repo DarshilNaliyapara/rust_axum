@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::schema::users;
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
