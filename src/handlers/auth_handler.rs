@@ -137,14 +137,12 @@ pub async fn change_password(
     Extension(auth_user): Extension<User>,
     ValidJson(body): ValidJson<ChangePasswordRequest>,
 ) -> Result<(StatusCode, Json<AuthJsonResponse>), AppError> {
-    // Fetch user
     let user = users::table
         .filter(users::username.eq(auth_user.username))
         .first::<User>(&mut *conn)
         .await
         .map_err(|_| AppError::Unauthorized)?;
 
-    // Verify old password
     let old_password = body.old_password;
     let stored_hash = user.password;
     let is_password_valid = async_task(move || {
